@@ -1,0 +1,33 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+.env/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE files
+.vscode/
+.idea/
+
+# Processed data (regenerated from notebooks)
+data/processed/
+
+# Saved models (regenerated from notebooks)
+models/*.pkl
+
+# Large raw data files (optional — uncomment if data is too large for GitHub)
+# data/raw/*.csv
+
+# Original dataset folder (now copied into data/raw/)
+uci dataset/
