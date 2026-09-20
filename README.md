@@ -64,7 +64,16 @@ The project utilizes the **UJIndoorLoc** benchmark dataset from the UCI Machine 
    * `max_rssi`: Signal strength of the strongest visible AP.
    * `std_rssi`: Variance in signal strength across visible APs.
    * `rssi_range`: Signal spread between strongest and weakest visible APs.
-4. **Strict Data Leakage Controls:** Train/Test split (80:20, `random_state=42`) is executed prior to feature transformation. All `StandardScaler` parameters are fitted **exclusively on the training split** and applied onto the test split.
+4. **Strict Data Leakage Controls:** The 80:20 development split uses `random_state=42`; classification additionally uses `stratify=y` to preserve floor proportions. Zero-variance WAP selection is learned from `trainingData.csv` only. `StandardScaler` parameters are fitted **exclusively on the model-training portion** and applied to the corresponding test data. For the final evaluation, the scaler is refitted on all labeled training rows and then applied to `validationData.csv`.
+
+### Case Study Evaluation Protocol
+
+The dataset is evaluated in two stages so model selection and final reporting remain separate:
+
+1. **Development stage:** `trainingData.csv` is split into an 80:20 train/test split. All required algorithms use this same split, making the comparison fair. Hyperparameters are selected using the development data, and the two best regression models also receive 5-fold cross-validated R² evaluation.
+2. **Final stage:** After selecting the best model, it is retrained on all rows in `trainingData.csv`. The labeled `validationData.csv` is used once as an official held-out evaluation set. It is not used to compare models or tune hyperparameters.
+
+This protocol gives both a fair model comparison and a more realistic estimate of performance on unseen data. The classification notebook also computes weighted one-vs-rest ROC-AUC and regenerates the ROC curves directly from the fitted models. Running the ROC cell creates `notebooks/figures/part_a_ovr_roc_curves.png`, so the figure is reproducible rather than dependent on a manually prepared image.
 
 ---
 
@@ -93,13 +102,32 @@ Evaluated across all 10 mandated regression algorithms on the identical held-out
 
 Evaluated across all 5 mandated Part A classification algorithms predicting `FLOOR` (Floors 0–4) with stratified splitting and One-vs-Rest ROC analysis.
 
-| Rank | Classifier Name | Accuracy | Precision (Weighted) | Recall (Weighted) | F1-Score (Weighted) | Key Observations & ROC Diagrams |
-| :---: | :--- | :---: | :---: | :---: | :---: | :--- |
-| **1** | **Support Vector Machine (SVC)** | **0.9937** | **0.9938** | **0.9937** | **0.9937** | RBF Kernel ($C=10$), optimal decision boundary (`figures/svm_rbf_roc.png`) |
-| **2** | **Logistic Regression** | **0.9890** | **0.9890** | **0.9890** | **0.9890** | Baseline One-vs-Rest, surprisingly strong linearity (`figures/logistic_regression_roc.png`) |
-| **3** | **KNN Classifier** | **0.9887** | **0.9888** | **0.9887** | **0.9887** | $k=5$, distance weighting captures spatial proximity (`figures/knn_roc.png`) |
-| **4** | Decision Tree Classifier | 0.7931 | 0.8622 | 0.7931 | 0.8017 | $max\_depth=15$, axis-aligned decision boundaries (`figures/decision_tree_roc.png`) |
-| **5** | Gaussian Naive Bayes | 0.4982 | 0.6869 | 0.4982 | 0.5158 | Independence assumption violated by co-located WAPs (`figures/naive_bayes_roc.png`) |
+| Rank | Classifier Name | Accuracy | Precision (Weighted) | Recall (Weighted) | F1-Score (Weighted) | ROC-AUC (Weighted OvR) | Notes |
+| :---: | :--- | :---: | :---: | :---: | :---: | :---: | :--- |
+| **1** | **Support Vector Machine (SVC)** | **0.9937** | **0.9938** | **0.9937** | **0.9937** | **0.9989** | RBF Kernel ($C=10$) |
+| **2** | **Logistic Regression** | **0.9890** | **0.9890** | **0.9890** | **0.9890** | **0.9994** | One-vs-Rest linear baseline |
+| **3** | **KNN Classifier** | **0.9887** | **0.9888** | **0.9887** | **0.9887** | **0.9992** | $k=5$, distance weighting |
+| **4** | Decision Tree Classifier | 0.7931 | 0.8622 | 0.7931 | 0.8017 | 0.9481 | $max\_depth=15$ |
+| **5** | Gaussian Naive Bayes | 0.4982 | 0.6869 | 0.4982 | 0.5158 | 0.7531 | Conditional-independence baseline |
+
+---
+
+### Official Held-Out Validation Findings
+
+The selected models were retrained on all 19,937 rows in `trainingData.csv` and evaluated on the untouched 1,111-row `validationData.csv`.
+
+| Track | Selected model | Main validation result | Interpretation |
+| :--- | :--- | :--- | :--- |
+| Regression | Tuned KNN | Longitude R² = 0.9903; latitude R² = 0.9776; mean positioning error = 9.19 coordinate units | The model predicts the two coordinates accurately on unseen labeled fingerprints. |
+| Classification | SVM with RBF kernel | Accuracy = 0.8524; weighted F1 = 0.8536; weighted OvR ROC-AUC = 0.9473 | The model generalizes reasonably, but performance is lower than the internal split suggests. |
+
+### Case Study Interpretation and Limitations
+
+The internal classification accuracy is approximately 99.37%, while the official validation accuracy is 85.24%. This gap is an important result, not an error to hide: it suggests that the internal split is optimistic or that the validation samples have a different distribution. The validation confusion matrix shows that adjacent floors are the main source of errors because their Wi-Fi environments overlap.
+
+For regression, the official validation results remain strong, with a mean positioning error of 9.19 coordinate units and a median error of 5.85. The actual-versus-predicted plots should be read together with the error histogram: points near the diagonal indicate accurate coordinate estimates, while the long-error tail identifies difficult locations or transition areas.
+
+The ROC figure is reproducible from the classification notebook. Run the cells from top to bottom and execute the **ROC-AUC Evaluation** cell; it trains the five Part A models, computes class-wise one-vs-rest curves, displays them, and saves `notebooks/figures/part_a_ovr_roc_curves.png`.
 
 ---
 
