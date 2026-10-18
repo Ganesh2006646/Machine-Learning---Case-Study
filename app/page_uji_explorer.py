@@ -35,12 +35,12 @@ def render(df: pd.DataFrame, waps: list[str]) -> None:
                          color_discrete_sequence=[CAT8[0], CAT8[1], CAT8[2]],
                          title="Buildings separate in XY")
         fig.update_layout(plot_bgcolor="#FFF", paper_bgcolor=PAL["bg"])
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
     with c2:
         fig = px.scatter(df, x="LONGITUDE", y="LATITUDE", color="FLOOR",
                          color_discrete_sequence=CAT8, title="Floors overlap in XY (need classifier)")
         fig.update_layout(plot_bgcolor="#FFF", paper_bgcolor=PAL["bg"])
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
     f, ax = plt.subplots(1, 2, figsize=(11, 3.5))
     ax[0].hist(df["LONGITUDE"], bins=40, color=PAL["primary"], edgecolor="black", alpha=0.8)
     ax[0].set_title("Longitude"); ax[0].set_xlabel("m")

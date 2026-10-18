@@ -212,6 +212,17 @@ pip install -r requirements.txt
 
 # 4. Launch Jupyter Notebook
 jupyter notebook
+# open notebooks/regression.ipynb, classification.ipynb, clustering.ipynb (run top-to-bottom)
+
+# 5. Retrain deployable champions (UJI + campus) — regenerates models/
+python scripts/build_campus_dataset.py
+python scripts/train_champions.py
+
+# 6. Run bonus dashboard locally (Windows live scan works here)
+streamlit run app/app.py
+
+# 7. Campus live collection (Windows admin terminal, Wi-Fi on)
+python scripts/campus_collector.py
 ```
 
 ---

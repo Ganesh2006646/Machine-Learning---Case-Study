@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import plotly.express as px
 
 BASE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, BASE)
 sys.path.insert(0, os.path.join(BASE, "app_utils"))
 ROOT = os.path.dirname(BASE)
 MODELS = os.path.join(ROOT, "models")
@@ -228,7 +229,7 @@ with tabs[5]:
             fig.add_scatter(x=h["lon"], y=h["lat"], mode="lines+markers", name="trail",
                             line=dict(color="#C67C4E", width=2))
         fig.update_layout(plot_bgcolor="#FFFFFF", paper_bgcolor=PAL["bg"])
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
         st.caption(f"Fingerprint quality: {fingerprint_quality(wide.iloc[0])} "
                    f"({int((wide.iloc[0] > -105).sum())} APs visible).")
 
@@ -285,7 +286,7 @@ with tabs[6]:
         fig.add_scatter(x=list(lo), y=list(la), mode="lines+markers", name="walk",
                         line=dict(color="#C67C4E", width=3), marker=dict(color="#D9A441", size=8))
         fig.update_layout(plot_bgcolor="#FFFFFF", paper_bgcolor=PAL["bg"])
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
 with tabs[7]:
     try:
         clustering_tab()

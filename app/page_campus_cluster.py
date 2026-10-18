@@ -19,12 +19,12 @@ def campus_eda(df: pd.DataFrame) -> None:
         fig = px.scatter(df, x="longitude", y="latitude", color="block",
                          color_discrete_sequence=CAT8, title="Campus blocks in GPS space")
         fig.update_layout(plot_bgcolor="#FFF", paper_bgcolor=PAL["bg"])
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
     with c2:
         fig = px.bar(df["block"].value_counts().reset_index(), x="block", y="count",
                      color="block", color_discrete_sequence=CAT8, title="Samples per block")
         fig.update_layout(plot_bgcolor="#FFF", paper_bgcolor=PAL["bg"], showlegend=False)
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
     f, ax = plt.subplots(1, 2, figsize=(12, 3.6))
     df["floor"].value_counts().sort_index().plot(kind="bar", ax=ax[0], color=PAL["primary"], edgecolor="black")
     ax[0].set_title("Floor balance"); ax[0].set_xlabel("floor"); ax[0].set_ylabel("scans")
