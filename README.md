@@ -166,25 +166,29 @@ Machine-Learning---Case-Study/
 ├── requirements.txt            ← Python Dependencies & Version Pins
 ├── .gitignore                  ← Git Exclusion Rules
 │
-├── data/
-│   └── raw/                    ← Original UJIndoorLoc Dataset CSVs
-│       ├── trainingData.csv    ← 19,937 samples × 529 columns
-│       └── validationData.csv  ← 1,111 samples × 529 columns
-│
 ├── notebooks/
 │   ├── regression.ipynb        ← Track 1: EDA, Cleaning, 10 Regressors, Tuning & Plots
 │   ├── classification.ipynb    ← Track 2: Parts A & B (All 10 Classifiers), ROC-AUC & Tuning
 │   ├── clustering.ipynb        ← Track 3: K-Means, Hierarchical, Elbow, Dendrogram, PCA & t-SNE
 │   └── figures/                ← Saved High-Resolution ROC Curves & Visualisations (.png)
-│       ├── all10_ovr_roc_curves.png
-│       ├── logistic_regression_roc.png
-│       ├── knn_roc.png
-│       ├── naive_bayes_roc.png
-│       ├── decision_tree_roc.png
-│       └── svm_rbf_roc.png
 │
-└── trash/
-    └── work_allocation.md      ← Team Work Split & Rubric Mapping
+├── data/
+│   ├── raw/                    ← UJIndoorLoc: trainingData.csv (19,937×529), validationData.csv (1,111×529)
+│   └── campus/                 ← Live scan: raw_scans.csv, trainingData_campus.csv (524×219), wap_dictionary.json
+│
+├── scripts/
+│   ├── campus_collector.py     ← Windows netsh collector (Block/Floor/Room + auto-GPS)
+│   ├── build_campus_dataset.py ← raw_scans → wide ML matrix + WAP map
+│   └── train_champions.py      ← trains UJI + campus champions → models/
+│
+├── app/
+│   ├── app.py                  ← Bonus GUI entry (run: streamlit run app/app.py)
+│   └── app_utils/              ← preprocess.py (shared clean/feats), scan_windows.py (live netsh)
+│
+├── models/                     ← regenerated artefacts (git-ignored *.pkl): uji_*/campus_* + room_centroids.csv
+│
+└── docs/
+    └── STREAMLIT_BONUS_GUIDE.md ← +2 bonus: palette, scan flow, hosting, viva Q&A
 ```
 
 ---
