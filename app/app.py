@@ -62,7 +62,8 @@ M = load(["uji_scaler.pkl", "uji_svm_floor.pkl", "uji_knn_lon.pkl",
 if not all([M["uji_scaler.pkl"], M["campus_scaler.pkl"]]):
     st.warning("Models not trained yet. Run: python scripts/train_champions.py then refresh.")
 
-tabs = st.tabs(["Overview", "UJI Explorer", "UJI Predict", "Campus Live Scan", "Model Health"])
+tabs = st.tabs(["Overview", "UJI Explorer", "UJI 10-Model Table",
+    "UJI Predict Lab", "Campus EDA", "Campus Live Scan", "Clustering", "Model Health"])
 with tabs[0]:
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("UJI KNN (notebook, full)", "R2 0.9966")
@@ -71,39 +72,75 @@ with tabs[0]:
     c4.metric("Campus deploy CV", "block RF (see Health)")
     st.info("Notebook champions (full 19,937 rows) vs deploy models (6k-row speed build in models/). Health tab shows the deploy CV. Pipeline: scan -> +100/-105 -> zero-var drop -> 5 RSSI feats -> scaler fit train-only -> KNN/SVM/RF. UJI and campus keep separate feature orders.")
 with tabs[1]:
-    st.subheader("UJI spatial structure (sample)")
+    st.subheader("UJI Explorer — spatial + RSSI (sampled)")
     try:
-        df = pd.read_csv(os.path.join(DATA, "raw", "trainingData.csv"), nrows=3000)
-        import plotly.express as px
-        fig = px.scatter(df, x="LONGITUDE", y="LATITUDE", color="BUILDINGID",
-                         color_discrete_sequence=["#1B3A4B", "#C67C4E", "#6AA99E"],
-                         title="Buildings separate cleanly in coordinate space")
-        fig.update_layout(plot_bgcolor="#FFFFFF", paper_bgcolor="#F8F6F1")
-        st.plotly_chart(fig, use_container_width=True)
+        n = st.slider("samples", 1000, 8000, 3000, 500, key="uji_n")
+        df = pd.read_csv(os.path.join(DATA, "raw", "trainingData.csv"), nrows=n)
+        from page_uji_explorer import render as uji_render
+        uji_render(df, [c for c in df.columns if c.startswith("WAP")])
     except Exception as e:
         st.error(str(e))
 with tabs[2]:
-    st.subheader("UJI fingerprint -> floor + coordinates")
+    st.subheader("UJI 10-model comparison (from notebooks)")
+    st.markdown("**Regression (test 3,988, by R2)**")
+    st.table(pd.DataFrame([
+        {"m": "KNN tuned", "R2": 0.9966, "RMSE": 7.28, "MAE": 2.06},
+        {"m": "RandForest", "R2": 0.9935, "RMSE": 10.01, "MAE": 5.23},
+        {"m": "GradBoost", "R2": 0.98, "RMSE": 17.6, "MAE": 7.66},
+        {"m": "SVR RBF", "R2": 0.9755, "RMSE": 19.46, "MAE": 8.17},
+        {"m": "Tree", "R2": 0.9717, "RMSE": 20.92, "MAE": 9.15},
+        {"m": "Linear/Ridge", "R2": 0.9488, "RMSE": 28.17, "MAE": 20.21},
+        {"m": "Lasso", "R2": 0.9419, "RMSE": 29.99, "MAE": 22.25},
+        {"m": "ElasticNet", "R2": 0.9339, "RMSE": 32.0, "MAE": 23.88},
+        {"m": "Poly d2", "R2": 0.8161, "RMSE": 53.37, "MAE": 39.82},
+    ]))
+    st.markdown("**Floor 0-4 (weighted)**")
+    st.table(pd.DataFrame([
+        {"m": "SVM RBF", "acc": 0.9937, "F1": 0.9937, "AUC": 0.9989},
+        {"m": "MLP 128,64", "acc": 0.9932, "F1": 0.9932, "AUC": 0.9996},
+        {"m": "GradBoost", "acc": 0.9925, "F1": 0.9925, "AUC": 0.9997},
+        {"m": "RandForest", "acc": 0.9895, "F1": 0.9895, "AUC": 0.9997},
+        {"m": "LogReg", "acc": 0.989, "F1": 0.989, "AUC": 0.9998},
+        {"m": "KNN k=5", "acc": 0.9887, "F1": 0.9887, "AUC": 0.9992},
+        {"m": "Bagging", "acc": 0.9155, "F1": 0.9162, "AUC": 0.9924},
+        {"m": "AdaBoost", "acc": 0.9122, "F1": 0.9135, "AUC": 0.9827},
+        {"m": "Tree", "acc": 0.7931, "F1": 0.8017, "AUC": 0.9481},
+        {"m": "NaiveBayes", "acc": 0.4982, "F1": 0.5158, "AUC": 0.7531},
+    ]))
+    st.caption("Official validation 1,111 (shift): SVM 85.24%.")
+with tabs[3]:
+    st.subheader("UJI Predict Lab — fingerprint in, floor + XY out")
     miss = need(M, "uji_scaler.pkl", "uji_svm_floor.pkl", "uji_knn_lon.pkl", "uji_knn_lat.pkl", "uji_meta.json")
     if miss:
         st.error(f"Missing: {miss}. Run `python scripts/train_champions.py`.")
-    elif st.button("Predict demo validation row 0"):
-        try:
-            from preprocess import engineer
-            v = pd.read_csv(os.path.join(DATA, "raw", "validationData.csv"), nrows=1)
-            meta = M["uji_meta.json"]
-            waps = [c for c in v.columns if c.startswith("WAP")]
-            row = v[waps].replace(100, -105)
-            keep = [w for w in meta["wap_keep"] if w in row.columns]
-            full = engineer(row, keep)
-            X = np.nan_to_num(M["uji_scaler.pkl"].transform(full[meta["feature_order"]].values))
-            fl = M["uji_svm_floor.pkl"].predict(X)[0]
-            lo = M["uji_knn_lon.pkl"].predict(X)[0]
-            la = M["uji_knn_lat.pkl"].predict(X)[0]
-            st.success(f"Floor {fl} | Lon {lo:.2f} | Lat {la:.2f} | True floor {int(v['FLOOR'].iloc[0])} (k={meta.get('best_k','?')})")
-        except Exception as e:
-            st.error(str(e))
-with tabs[3]:
+    else:
+        n = st.slider("validation rows to test", 1, 20, 5, key="uji_test_n")
+        if st.button("Run UJI demo"):
+            try:
+                from preprocess import engineer
+                v = pd.read_csv(os.path.join(DATA, "raw", "validationData.csv"), nrows=n)
+                meta = M["uji_meta.json"]
+                waps = [c for c in v.columns if c.startswith("WAP")]
+                rows = v[waps].replace(100, -105)
+                keep = [w for w in meta["wap_keep"] if w in rows.columns]
+                full = engineer(rows, keep)
+                X = np.nan_to_num(M["uji_scaler.pkl"].transform(full[meta["feature_order"]].values))
+                v["pred_floor"] = M["uji_svm_floor.pkl"].predict(X)
+                v["pred_lon"] = M["uji_knn_lon.pkl"].predict(X)
+                v["pred_lat"] = M["uji_knn_lat.pkl"].predict(X)
+                v["err_m"] = np.sqrt((v["LONGITUDE"] - v["pred_lon"]) ** 2 + (v["LATITUDE"] - v["pred_lat"]) ** 2)
+                st.success(f"Floor acc: {(v['pred_floor'] == v['FLOOR']).mean():.3f} | mean err: {v['err_m'].mean():.2f} m (k={meta.get('best_k','?')})")
+                st.dataframe(v[["FLOOR", "pred_floor", "LONGITUDE", "pred_lon", "LATITUDE", "pred_lat", "err_m"]])
+            except Exception as e:
+                st.error(str(e))
+with tabs[4]:
+    st.subheader("Campus EDA — blocks, floors, rooms")
+    try:
+        from page_campus_cluster import campus_eda
+        campus_eda(pd.read_csv(os.path.join(DATA, "campus", "trainingData_campus.csv")))
+    except Exception as e:
+        st.error(str(e))
+with tabs[5]:
     st.subheader("Campus live scan -> block / floor / room + map")
     from scan_windows import scan_windows, to_wap_vector
     from preprocess import engineer as eng2, haversine_m
@@ -174,7 +211,13 @@ with tabs[3]:
         except Exception as e:
             st.error(str(e))
 
-with tabs[4]:
+with tabs[6]:
+    try:
+        from page_campus_cluster import clustering_tab
+        clustering_tab()
+    except Exception as e:
+        st.error(str(e))
+with tabs[7]:
     st.subheader("Model health (deploy build — from train_champions.py log)")
     st.table(pd.DataFrame([
         {"model": "UJI SVM floor (deploy)", "metric": "5-fold F1 0.9737±0.0082 (n=2500 slice)", "tuning": "C=10 RBF fixed"},
