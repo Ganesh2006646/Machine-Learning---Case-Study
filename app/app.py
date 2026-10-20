@@ -21,9 +21,7 @@ DATA = os.path.join(ROOT, "data")
 
 from preprocess import PAL, CAT8, engineer, fingerprint_quality, haversine_m
 from scan_windows import scan_windows, to_wap_vector
-from page_uji_explorer import render as uji_render
-from page_campus_cluster import campus_eda, clustering_tab
-from page_extras import demo_fingerprint, push_history, report_csv, walk_path
+from page_extras import demo_fingerprint, push_history
 
 plt.rcParams.update({"figure.facecolor": PAL["bg"], "axes.facecolor": PAL["card"]})
 st.set_page_config(page_title="Wi-Fi Indoor Localization", layout="wide")
@@ -61,11 +59,6 @@ def load_all() -> dict:
 
 
 @st.cache_data
-def uji_rows(n: int) -> pd.DataFrame:
-    return pd.read_csv(os.path.join(DATA, "raw", "trainingData.csv"), nrows=n)
-
-
-@st.cache_data
 def campus_df() -> pd.DataFrame:
     return pd.read_csv(os.path.join(DATA, "campus", "trainingData_campus.csv"))
 
@@ -87,16 +80,15 @@ M = load_all()
 if missing(M, "uji_scaler.pkl", "campus_scaler.pkl"):
     st.warning("Models missing. Run: `python scripts/train_champions.py` then refresh.")
 
-tabs = st.tabs(["Overview", "UJI Explorer", "UJI 10-Model Table", "UJI Predict Lab",
-                "Campus EDA", "Campus Live Scan", "Simulated Walk",
-                "Clustering", "Model Health", "Viva Q&A"])
+tabs = st.tabs(["Overview", "UJI Predict Lab", "Campus Live Scan"])
 # ---- generated pages A (overview..campus EDA) ----
 with tabs[0]:
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("UJI samples", "19,937 + 1,111 val")
-    c2.metric("UJI KNN (notebook)", "R2 0.9966, MAE 2.06m")
-    c3.metric("UJI SVM floor", "F1 0.9937")
-    c4.metric("Campus", "524 x 219 WAPs, 8 blocks")
+    c1.metric("UJI train", "19,937")
+    c2.metric("Regression R²", "0.9966")
+    c3.metric("Classification F1", "0.9937")
+    c4.metric("Campus scans", "524")
+    st.caption("UJI validation: 1,111 rows | Campus features: 219 WAPs across 8 blocks")
     st.info("Scan (netsh) -> +100 to -105 dBm -> zero-var drop (520->465 UJI) -> 5 RSSI feats -> scaler fit train-only -> KNN/SVM/RF. UJI & campus use separate feature orders.")
     a, b = st.columns(2)
     with a:
@@ -111,50 +103,40 @@ with tabs[0]:
             {"model": "RF block", "cv": "3-fold F1 1.0000"},
             {"model": "RF floor", "cv": "3-fold F1 1.0000"},
             {"model": "KNN room/coords", "cv": "k=3 + haversine Top-3"}]))
+    st.markdown("### What each machine-learning task does")
+    st.markdown("""
+    **Classification** predicts a discrete label. Here, the SVM reads a Wi-Fi
+    fingerprint and predicts the UJI building floor; the campus Random Forest
+    models predict the campus block and floor. The result is a category, not a
+    distance.
+
+    **Regression** predicts continuous values. The UJI KNN regressors estimate
+    latitude and longitude from nearby fingerprints, while the campus KNN
+    regressor estimates the scan location. The output is a coordinate that can
+    be compared with the known position in metres.
+
+    **Clustering** groups similar fingerprints without using target labels. In
+    the original analysis, K-Means was used to explore natural groups in the
+    Wi-Fi data. It is an exploratory view rather than the deployable predictor,
+    so it is summarized here instead of exposed as a separate application tab.
+    """)
+    st.markdown("### Main views")
+    st.markdown("""
+    **UJI Predict Lab** is the main reproducible prediction workflow: it takes
+    held-out validation fingerprints, applies the same preprocessing used during
+    training, predicts floor and coordinates, and reports floor accuracy plus
+    localization error.
+    """)
 with tabs[1]:
-    st.subheader("UJI Explorer — spatial + RSSI (sampled)")
-    n = st.slider("samples", 1000, 8000, 3000, 500, key="uji_n")
-    try:
-        df = uji_rows(n)
-        uji_render(df, [c for c in df.columns if c.startswith("WAP")])
-        f, ax = plt.subplots(figsize=(9, 3.4))
-        wc = [c for c in df.columns if c.startswith("WAP")]
-        eng = engineer(df[wc].replace(100, -105), wc)
-        ax.scatter(eng["mean_rssi"], eng["n_visible_aps"], s=5, alpha=0.4, color=PAL["primary"])
-        ax.set_title("Engineered: mean RSSI vs visible count"); ax.set_xlabel("mean_rssi"); ax.set_ylabel("n_visible_aps")
-        plt.tight_layout(); st.pyplot(f); plt.close(f)
-        st.caption("Insight: open areas see more APs with stronger mean — both feats help KNN separate buildings.")
-    except Exception as e:
-        err_box(str(e))
-with tabs[2]:
-    st.subheader("UJI 10-model comparison (from notebooks)")
-    reg = pd.DataFrame([
-        {"m": "KNN tuned", "R2": 0.9966, "RMSE": 7.28, "MAE": 2.06},
-        {"m": "RandForest", "R2": 0.9935, "RMSE": 10.01, "MAE": 5.23},
-        {"m": "GradBoost", "R2": 0.98, "RMSE": 17.6, "MAE": 7.66},
-        {"m": "SVR RBF", "R2": 0.9755, "RMSE": 19.46, "MAE": 8.17},
-        {"m": "Tree", "R2": 0.9717, "RMSE": 20.92, "MAE": 9.15},
-        {"m": "Linear/Ridge", "R2": 0.9488, "RMSE": 28.17, "MAE": 20.21},
-        {"m": "Lasso", "R2": 0.9419, "RMSE": 29.99, "MAE": 22.25},
-        {"m": "ElasticNet", "R2": 0.9339, "RMSE": 32.0, "MAE": 23.88},
-        {"m": "Poly d2", "R2": 0.8161, "RMSE": 53.37, "MAE": 39.82}])
-    st.table(reg)
-    f, ax = plt.subplots(figsize=(9, 3.2))
-    ax.barh(reg["m"], reg["R2"], color=PAL["sage"], edgecolor="black")
-    ax.set_title("Regression R2 ranking"); plt.tight_layout(); st.pyplot(f); plt.close(f)
-    clf = pd.DataFrame([
-        {"m": "SVM RBF", "F1": 0.9937}, {"m": "MLP 128,64", "F1": 0.9932},
-        {"m": "GradBoost", "F1": 0.9925}, {"m": "RandForest", "F1": 0.9895},
-        {"m": "LogReg", "F1": 0.989}, {"m": "KNN k=5", "F1": 0.9887},
-        {"m": "Bagging", "F1": 0.9155}, {"m": "AdaBoost", "F1": 0.9135},
-        {"m": "Tree", "F1": 0.8017}, {"m": "NaiveBayes", "F1": 0.5158}])
-    st.table(clf)
-    f, ax = plt.subplots(figsize=(9, 3.6))
-    ax.barh(clf["m"], clf["F1"], color=PAL["primary"], edgecolor="black")
-    ax.set_title("Classifier F1 ranking"); plt.tight_layout(); st.pyplot(f); plt.close(f)
-    st.caption("Insight: distance methods dominate; NB fails on correlated WAPs. Official val SVM 85.24% (shift).")
-with tabs[3]:
-    st.subheader("UJI Predict Lab — fingerprint in, floor + XY out")
+    st.subheader("UJI Predict Lab — fingerprint in, floor + coordinates out")
+    st.markdown("""
+    This is the main prediction screen. Select a few held-out UJI validation
+    rows and run the trained deployment models. Each fingerprint is converted
+    to the same engineered RSSI features and scaling used during training.
+    The classifier predicts the floor, the regressors predict latitude and
+    longitude, and the results include the observed values and localization
+    error in metres.
+    """)
     miss = missing(M, "uji_scaler.pkl", "uji_svm_floor.pkl", "uji_knn_lon.pkl", "uji_knn_lat.pkl", "uji_meta.json")
     if miss:
         err_box(f"Missing: {miss}. Run python scripts/train_champions.py.")
@@ -181,14 +163,8 @@ with tabs[3]:
                 ax.set_title("Error distribution"); ax.set_xlabel("metres"); plt.tight_layout(); st.pyplot(f); plt.close(f)
             except Exception as e:
                 err_box(str(e))
-with tabs[4]:
-    st.subheader("Campus EDA — blocks, floors, rooms")
-    try:
-        campus_eda(campus_df())
-    except Exception as e:
-        err_box(str(e))
 # ---- pages B1: live scan ----
-with tabs[5]:
+with tabs[2]:
     st.subheader("Campus live scan -> block / floor / room + map")
     miss = missing(M, "campus_scaler.pkl", "campus_rf_block.pkl", "campus_rf_floor.pkl",
                    "campus_knn_room.pkl", "campus_knn_reg.pkl", "campus_meta.json")
@@ -271,43 +247,3 @@ with tabs[5]:
     if st.session_state.get("scan_history"):
         st.markdown("**Scan trail (this session)**")
         st.dataframe(pd.DataFrame(st.session_state["scan_history"]))
-# ---- pages B2: walk, clustering, health, viva ----
-with tabs[6]:
-    st.subheader("Simulated walk — assumed movement trail")
-    lat0 = st.number_input("start lat", value=10.90628, format="%.7f")
-    lon0 = st.number_input("start lon", value=76.89784, format="%.7f")
-    steps = st.slider("steps", 5, 30, 12)
-    if st.button("Simulate walk"):
-        pts = walk_path(lat0, lon0, steps)
-        tr = campus_df()
-        fig = px.scatter(tr, x="longitude", y="latitude", color="block",
-                         color_discrete_sequence=CAT8, title="Assumed walk trail")
-        la, lo = zip(*pts)
-        fig.add_scatter(x=list(lo), y=list(la), mode="lines+markers", name="walk",
-                        line=dict(color="#C67C4E", width=3), marker=dict(color="#D9A441", size=8))
-        fig.update_layout(plot_bgcolor="#FFFFFF", paper_bgcolor=PAL["bg"])
-        st.plotly_chart(fig, width='stretch')
-with tabs[7]:
-    try:
-        clustering_tab()
-    except Exception as e:
-        err_box(str(e))
-with tabs[8]:
-    st.subheader("Model health (deploy build)")
-    st.table(pd.DataFrame([
-        {"model": "UJI SVM floor", "metric": "5-fold F1 0.9737+-0.0082 (n=2500)", "tuning": "C=10 RBF"},
-        {"model": "UJI KNN lon", "metric": "R2 0.9901, RMSE 12.35, MAE 5.53", "tuning": "k in [3,5,7] -> 3"},
-        {"model": "Campus RF block", "metric": "3-fold F1 1.0000", "tuning": "n=200 depth=14"},
-        {"model": "Campus RF floor", "metric": "3-fold F1 1.0000", "tuning": "n=200 depth=14"},
-        {"model": "Campus KNN room/coords", "metric": "k=3 + haversine Top-3", "tuning": "n=524 safe"}]))
-    st.caption("Notebook full-data: KNN R2 0.9966 / SVM F1 0.9937. Deploy = 6k-row speed build.")
-    if st.button("Download campus report (30 rows)"):
-        try:
-            df = campus_df().head(30)
-            st.download_button("Save CSV", report_csv(df[["block", "floor", "room", "latitude", "longitude"]]), "campus_report.csv")
-        except Exception as e:
-            err_box(str(e))
-with tabs[9]:
-    st.subheader("Viva Q&A — one-line answers")
-    st.markdown("- **Why -105?** Below -104 floor; preserves order.\n- **Why KNN wins?** Fingerprint neighbours = physical neighbours.\n- **Why 99% but 85% val?** Time/device shift; honest gap.\n- **Why separate campus models?** 219 vs 465 WAPs.\n- **Why RF + k=3 campus?** n=524; 3-fold honest.\n- **Assumed?** Demo print, walk, trail — labelled; core predictions real.")
-    st.info("90-sec loop: Predict Lab (5 rows) -> Live Scan Upload/Demo -> Walk -> report.")
