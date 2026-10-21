@@ -2,12 +2,12 @@
   "dataset": {
     "path": "data/campus/trainingData_campus.csv",
     "sha256": "7a6a5ee41e8a8ec5e59980cb47a1b8c9c9cec57a4a25b47d9547c356e48f0c3d",
-    "samples_after_cleaning": 207,
+    "samples_after_cleaning": 524,
     "wap_features": 219,
     "total_features": 224,
-    "blocks": 7,
+    "blocks": 8,
     "floors": 4,
-    "rooms": 40
+    "rooms": 41
   },
   "classification_floor": {
     "model": "RandomForestClassifier",
@@ -21,16 +21,16 @@
   "regression_position": {
     "model": "KNeighborsRegressor",
     "best_k": 2,
-    "cv_latitude_r2": 0.897462223785379,
-    "held_out_latitude_r2": 0.9964372206014767,
-    "mean_haversine_error_m": 0.28468232393599663,
-    "median_haversine_error_m": 1.9752186845167106e-10
+    "cv_latitude_r2": 0.9998900884859419,
+    "held_out_latitude_r2": 1.0,
+    "mean_haversine_error_m": 4.6332800153624886e-11,
+    "median_haversine_error_m": 0.0
   },
   "clustering": {
     "model": "KMeans",
     "best_k": 10,
-    "silhouette": 0.22540319089475833,
-    "davies_bouldin": 1.6186009098460041,
-    "calinski_harabasz": 15.187007620860324
+    "silhouette": 0.2377767357535943,
+    "davies_bouldin": 1.7309933288925716,
+    "calinski_harabasz": 36.354585494087026
   }
 }
