@@ -23,8 +23,8 @@ desktop.ini
 # Processed data (regenerated from notebooks)
 data/processed/
 
-# Saved models (regenerated from notebooks)
-models/*.pkl
+# Saved model binaries (regenerated from notebooks/scripts)
+models/**/*.pkl
 
 # Large raw data files (optional — uncomment if data is too large for GitHub)
 # data/raw/*.csv

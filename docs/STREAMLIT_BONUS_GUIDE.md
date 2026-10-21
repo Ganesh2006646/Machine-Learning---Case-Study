@@ -50,7 +50,7 @@ font="sans serif"
 .streamlit/config.toml
 app/app.py + app/app_utils/     # bonus GUI (Streamlit entry: app/app.py)
 scripts/train_champions.py      # retrains UJI + campus champions
-models/*.pkl + *_meta.json      # git-ignored, regenerated
+models/uji + models/campus      # organized binaries, metadata, centroids, results
 notebooks/regression.ipynb, classification.ipynb, clustering.ipynb
 data/raw + data/campus
 docs/STREAMLIT_BONUS_GUIDE.md
@@ -77,6 +77,8 @@ Need >=10 bursts per room, >=2 rooms per floor per demo block.
 ```powershell
 pip install -r requirements.txt
 python scripts/train_champions.py
+# or, after a campus-data-only update:
+python scripts/train_champions.py --dataset campus
 streamlit run app.py
 ```
 
@@ -115,7 +117,7 @@ Scan Now -> `netsh wlan show networks mode=bssid` -> `% -> dBm (pct/2-100)`
 | All -105 after scan | admin terminal, Wi-Fi on, netsh must list BSSIDs |
 | GPS UNKNOWN | allow Location privacy, else manual lat,lon |
 | Empty Scan on Cloud | expected on Linux; use Upload demo CSV |
-| joblib load fails | retrain via train_champions.py, commit pkls together |
+| joblib load fails | retrain via train_champions.py; generated pkls remain git-ignored |
 
 ## 10. Demo order
 

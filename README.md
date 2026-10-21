@@ -179,13 +179,15 @@ Machine-Learning---Case-Study/
 ├── scripts/
 │   ├── campus_collector.py     ← Windows netsh collector (Block/Floor/Room + auto-GPS)
 │   ├── build_campus_dataset.py ← raw_scans → wide ML matrix + WAP map
-│   └── train_champions.py      ← trains UJI + campus champions → models/
+│   └── train_champions.py      ← trains UJI/campus champions → models/{uji,campus}/
 │
 ├── app/
 │   ├── app.py                  ← Bonus GUI entry (run: streamlit run app/app.py)
 │   └── app_utils/              ← preprocess.py (shared clean/feats), scan_windows.py (live netsh)
 │
-├── models/                     ← regenerated artefacts (git-ignored *.pkl): uji_*/campus_* + room_centroids.csv
+├── models/
+│   ├── uji/                    ← UJI model binaries + metadata
+│   └── campus/                 ← campus models, metadata, centroids, and evaluation results
 │
 └── docs/
     └── STREAMLIT_BONUS_GUIDE.md ← +2 bonus: palette, scan flow, hosting, viva Q&A
@@ -217,6 +219,9 @@ jupyter notebook
 # 5. Retrain deployable champions (UJI + campus) — regenerates models/
 python scripts/build_campus_dataset.py
 python scripts/train_champions.py
+
+# Campus-only refresh after replacing trainingData_campus.csv
+python scripts/train_champions.py --dataset campus
 
 # 6. Run bonus dashboard locally (Windows live scan works here)
 streamlit run app/app.py

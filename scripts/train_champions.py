@@ -1,4 +1,5 @@
-"""Train champions for UJI + campus. Run: python scripts/train_champions.py"""
+"""Train deployable UJI and/or campus champion models."""
+import argparse
 import json
 import os
 import joblib
@@ -16,11 +17,16 @@ from preprocess import engineer, clean
 
 BASE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MODELS = os.path.join(BASE, "models")
-os.makedirs(MODELS, exist_ok=True)
+MODEL_DIRS = {
+    "uji": os.path.join(MODELS, "uji"),
+    "campus": os.path.join(MODELS, "campus"),
+}
+for model_dir in MODEL_DIRS.values():
+    os.makedirs(model_dir, exist_ok=True)
 
 
-def save(obj, name):
-    joblib.dump(obj, os.path.join(MODELS, name))
+def save(obj, dataset, name):
+    joblib.dump(obj, os.path.join(MODEL_DIRS[dataset], name))
 
 
 def train_uji(sample=6000, cv_sample=2500):
@@ -63,12 +69,12 @@ def train_uji(sample=6000, cv_sample=2500):
     clf.fit(Xs, y_floor)
     knn_lon = KNeighborsRegressor(n_neighbors=best_k, weights="distance", n_jobs=-1).fit(Xs, tr["LONGITUDE"].values)
     knn_lat = KNeighborsRegressor(n_neighbors=best_k, weights="distance", n_jobs=-1).fit(Xs, tr["LATITUDE"].values)
-    save(sc, "uji_scaler.pkl")
-    save(clf, "uji_svm_floor.pkl")
-    save(knn_lon, "uji_knn_lon.pkl")
-    save(knn_lat, "uji_knn_lat.pkl")
-    json.dump({"feature_order": feats, "wap_keep": keep, "best_k": int(best_k)},
-              open(os.path.join(MODELS, "uji_meta.json"), "w"))
+    save(sc, "uji", "uji_scaler.pkl")
+    save(clf, "uji", "uji_svm_floor.pkl")
+    save(knn_lon, "uji", "uji_knn_lon.pkl")
+    save(knn_lat, "uji", "uji_knn_lat.pkl")
+    with open(os.path.join(MODEL_DIRS["uji"], "uji_meta.json"), "w", encoding="utf-8") as f:
+        json.dump({"feature_order": feats, "wap_keep": keep, "best_k": int(best_k)}, f, indent=2)
     print(f"saved UJI models (best_k={best_k}).")
 
 
@@ -97,20 +103,42 @@ def train_campus():
     rf = RandomForestClassifier(n_estimators=200, max_depth=14, random_state=42, n_jobs=-1).fit(Xs, df["floor"].values)
     rm = KNeighborsClassifier(n_neighbors=3, weights="distance", n_jobs=-1).fit(Xs, df["room"].values)
     rg = KNeighborsRegressor(n_neighbors=3, weights="distance", n_jobs=-1).fit(Xs, df[["latitude", "longitude"]].values)
-    save(sc, "campus_scaler.pkl")
-    save(rb, "campus_rf_block.pkl")
-    save(rf, "campus_rf_floor.pkl")
-    save(rm, "campus_knn_room.pkl")
-    save(rg, "campus_knn_reg.pkl")
+    save(sc, "campus", "campus_scaler.pkl")
+    save(rb, "campus", "campus_rf_block.pkl")
+    save(rf, "campus", "campus_rf_floor.pkl")
+    save(rm, "campus", "campus_knn_room.pkl")
+    save(rg, "campus", "campus_knn_reg.pkl")
     cent = df.groupby("room")[["latitude", "longitude"]].mean().reset_index()
-    cent.to_csv(os.path.join(MODELS, "room_centroids.csv"), index=False)
-    wmap = json.load(open(os.path.join(BASE, "data", "campus", "wap_dictionary.json"), encoding="utf-8"))
+    cent.to_csv(os.path.join(MODEL_DIRS["campus"], "room_centroids.csv"), index=False)
+    with open(os.path.join(BASE, "data", "campus", "wap_dictionary.json"), encoding="utf-8") as f:
+        wmap = json.load(f)
     b2w = {v["bssid"].lower(): k for k, v in wmap.items()}
-    json.dump({"feature_order": feats, "wap_cols": waps, "bssid_to_wap": b2w},
-              open(os.path.join(MODELS, "campus_meta.json"), "w"))
+    metadata = {
+        "dataset_path": "data/campus/trainingData_campus.csv",
+        "n_samples": int(len(df)),
+        "n_waps": int(len(waps)),
+        "n_blocks": int(df["block"].nunique()),
+        "n_floors": int(df["floor"].nunique()),
+        "n_rooms": int(df["room"].nunique()),
+        "feature_order": feats,
+        "wap_cols": waps,
+        "bssid_to_wap": b2w,
+    }
+    with open(os.path.join(MODEL_DIRS["campus"], "campus_meta.json"), "w", encoding="utf-8") as f:
+        json.dump(metadata, f, indent=2)
     print(f"saved campus models. rooms={df['room'].nunique()} blocks={sorted(df['block'].unique())}")
 
 
 if __name__ == "__main__":
-    train_uji()
-    train_campus()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--dataset",
+        choices=("all", "uji", "campus"),
+        default="all",
+        help="Model group to train (default: all).",
+    )
+    args = parser.parse_args()
+    if args.dataset in ("all", "uji"):
+        train_uji()
+    if args.dataset in ("all", "campus"):
+        train_campus()

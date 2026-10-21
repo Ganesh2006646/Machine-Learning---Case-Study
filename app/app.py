@@ -31,29 +31,37 @@ section[data-testid="stSidebar"]{{background:#EFE9DC}}</style>""", unsafe_allow_
 st.title("Wi-Fi Fingerprint Indoor Localization")
 st.caption("UJI benchmark (19,937) + Amrita campus live scan (524) | 23CSE301 Capstone")
 
-MODEL_FILES = ["uji_scaler.pkl", "uji_svm_floor.pkl", "uji_knn_lon.pkl", "uji_knn_lat.pkl",
-               "campus_scaler.pkl", "campus_rf_block.pkl", "campus_rf_floor.pkl",
-               "campus_knn_room.pkl", "campus_knn_reg.pkl"]
+MODEL_FILES = {
+    "uji_scaler.pkl": ("uji", "uji_scaler.pkl"),
+    "uji_svm_floor.pkl": ("uji", "uji_svm_floor.pkl"),
+    "uji_knn_lon.pkl": ("uji", "uji_knn_lon.pkl"),
+    "uji_knn_lat.pkl": ("uji", "uji_knn_lat.pkl"),
+    "campus_scaler.pkl": ("campus", "campus_scaler.pkl"),
+    "campus_rf_block.pkl": ("campus", "campus_rf_block.pkl"),
+    "campus_rf_floor.pkl": ("campus", "campus_rf_floor.pkl"),
+    "campus_knn_room.pkl": ("campus", "campus_knn_room.pkl"),
+    "campus_knn_reg.pkl": ("campus", "campus_knn_reg.pkl"),
+}
 
 
 @st.cache_resource
 def load_all() -> dict:
     out: dict = {}
-    for n in MODEL_FILES:
-        p = os.path.join(MODELS, n)
+    for n, parts in MODEL_FILES.items():
+        p = os.path.join(MODELS, *parts)
         try:
             out[n] = joblib.load(p) if os.path.exists(p) else None
         except Exception as e:
             out[n] = None
             out[n + "__err"] = str(e)
-    for n in ("uji_meta.json", "campus_meta.json"):
-        p = os.path.join(MODELS, n)
+    for n, dataset in (("uji_meta.json", "uji"), ("campus_meta.json", "campus")):
+        p = os.path.join(MODELS, dataset, n)
         try:
             out[n] = json.load(open(p, encoding="utf-8")) if os.path.exists(p) else None
         except Exception as e:
             out[n] = None
             out[n + "__err"] = str(e)
-    p = os.path.join(MODELS, "room_centroids.csv")
+    p = os.path.join(MODELS, "campus", "room_centroids.csv")
     out["cent"] = pd.read_csv(p) if os.path.exists(p) else None
     return out
 
@@ -78,7 +86,7 @@ def err_box(msg: str) -> None:
 
 M = load_all()
 if missing(M, "uji_scaler.pkl", "campus_scaler.pkl"):
-    st.warning("Models missing. Run: `python scripts/train_champions.py` then refresh.")
+    st.warning("Models missing. Run `python scripts/train_champions.py` (or use `--dataset campus`) then refresh.")
 
 tabs = st.tabs(["Overview", "UJI Predict Lab", "Campus Live Scan"])
 # ---- generated pages A (overview..campus EDA) ----
@@ -98,7 +106,7 @@ with tabs[0]:
             {"track": "Classification", "best": "SVM RBF C=10", "score": "F1 0.9937, AUC 0.9989"},
             {"track": "Clustering", "best": "KMeans k=5", "score": "Sil 0.0883, DB 2.95"}]))
     with b:
-        st.markdown("#### Campus deploy (models/*.pkl)")
+        st.markdown("#### Campus deploy (`models/campus/`)")
         st.table(pd.DataFrame([
             {"model": "RF block", "cv": "3-fold F1 1.0000"},
             {"model": "RF floor", "cv": "3-fold F1 1.0000"},
