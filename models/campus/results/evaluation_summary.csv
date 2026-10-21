@@ -1,0 +1,4 @@
+task,model,validation,held-out key metric
+Classification — FLOOR,"RandomForest (n=200, depth=14)",3-fold stratified F1 = 1.0000 +-0.0000,acc 1.000 | F1 1.000
+Regression — LAT/LON,"KNN tuned k=2, distance",GridSearchCV R2 = 0.8975,R2 0.9964 | mean err 0.28 m
+Clustering — zones,KMeans k=10,Silhouette 0.225,DB 1.619 | CH 15.2
